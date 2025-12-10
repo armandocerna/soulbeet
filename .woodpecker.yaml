@@ -27,7 +27,7 @@ steps:
       - git config --global user.name "Woodpecker CI"
       - git clone --depth 1 "https://x-access-token:$${GITHUB_TOKEN}@github.com/armandocerna/argocd-homelab.git" /tmp/homelab
       - cd /tmp/homelab
-      - sed -i "s/newTag:.*/newTag: \"${CI_COMMIT_SHA:0:8}\"/" soulbeet/kustomization.yaml
+      - 'sed -i "s/newTag:.*/newTag: \"${CI_COMMIT_SHA:0:8}\"/" soulbeet/kustomization.yaml'
       - git add soulbeet/kustomization.yaml
-      - git commit -m "Update soulbeet image to ${CI_COMMIT_SHA:0:8}"
+      - 'git commit -m "Update soulbeet image to ${CI_COMMIT_SHA:0:8}"'
       - git push
