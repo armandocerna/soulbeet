@@ -506,6 +506,16 @@ impl SoulseekClient {
             filename: String,
         }
 
+        // Wrapper for slskd's actual response format: {"enqueued": [...], "failed": [...]}
+        #[derive(Deserialize, Debug)]
+        #[serde(rename_all = "camelCase")]
+        struct SlskdDownloadEnqueueResponse {
+            #[serde(default)]
+            enqueued: Vec<SlskdDownloadResponse>,
+            #[serde(default)]
+            failed: Vec<SlskdDownloadResponse>,
+        }
+
         info!("Attempting to download: {} files...", req.len());
         for req in req {
             let list = requests_by_username.entry(req.base.username).or_default();
@@ -569,7 +579,41 @@ impl SoulseekClient {
                         error: None,
                     });
                 }
-                // TODO: Check slskd response
+            } else if let Ok(enqueue_res) =
+                serde_json::from_str::<SlskdDownloadEnqueueResponse>(&resp_text)
+            {
+                // Handle slskd's {"enqueued": [...], "failed": [...]} response format
+                info!(
+                    "Download response: {} enqueued, {} failed",
+                    enqueue_res.enqueued.len(),
+                    enqueue_res.failed.len()
+                );
+                res.extend(enqueue_res.enqueued.into_iter().map(|d| {
+                    let size = file_requests
+                        .iter()
+                        .find(|f| f.filename == d.filename)
+                        .map(|f| f.size)
+                        .unwrap_or(0);
+                    DownloadResponse {
+                        username: username.clone(),
+                        filename: d.filename,
+                        size: size as u64,
+                        error: None,
+                    }
+                }));
+                res.extend(enqueue_res.failed.into_iter().map(|d| {
+                    let size = file_requests
+                        .iter()
+                        .find(|f| f.filename == d.filename)
+                        .map(|f| f.size)
+                        .unwrap_or(0);
+                    DownloadResponse {
+                        username: username.clone(),
+                        filename: d.filename,
+                        size: size as u64,
+                        error: Some("Failed to enqueue".to_string()),
+                    }
+                }));
             } else if let Ok(single_res) = serde_json::from_str::<SlskdDownloadResponse>(&resp_text)
             {
                 let size = file_requests
