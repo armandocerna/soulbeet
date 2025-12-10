@@ -166,7 +166,8 @@ pub fn DownloadResults(props: Props) -> Element {
                                 "Searching for the best quality album..."
                             }
                         }
-                    } else if results.is_empty() {
+                    }
+                    if !props.is_searching && results.is_empty() {
                         div { class: "text-center text-gray-500 py-8", "No results found" }
                     }
                     for album in results.iter() {
