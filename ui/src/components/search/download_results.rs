@@ -141,6 +141,79 @@ pub fn DownloadResults(props: Props) -> Element {
             .call((tracks_to_download, selected_folder()));
     };
 
+    // Simplified view when download_full_albums is enabled - shows albums with download buttons (no track selection)
+    if download_full_albums.get() {
+        return rsx! {
+            div { class: "bg-gray-800 text-white p-6 sm:p-8 rounded-lg shadow-xl max-w-2xl mx-auto my-10 font-sans relative",
+                h3 { class: "text-2xl font-bold mb-6 text-center text-teal-400", "Download Album" }
+                div { class: "mb-4",
+                    label { class: "block text-sm font-medium mb-1", "Select Target Folder" }
+                    select {
+                        class: "w-full p-2 rounded bg-gray-700 border border-gray-600 focus:border-teal-500 focus:outline-none",
+                        value: "{selected_folder}",
+                        onchange: move |e| selected_folder.set(e.value()),
+                        for folder in folders.read().iter() {
+                            option { value: "{folder.path}", "{folder.name}" }
+                        }
+                    }
+                }
+
+                div { class: "space-y-3",
+                    if props.is_searching {
+                        div { class: "flex flex-col items-center justify-center p-4 bg-gray-700/50 rounded-lg",
+                            div { class: "animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-teal-500 mb-2" }
+                            p { class: "text-sm text-gray-300 animate-pulse text-center",
+                                "Searching for the best quality album..."
+                            }
+                        }
+                    } else if results.is_empty() {
+                        div { class: "text-center text-gray-500 py-8", "No results found" }
+                    }
+                    for album in results.iter() {
+                        {
+                            let album_for_download = album.clone();
+                            rsx! {
+                                div { key: "{album.album_path}", class: "bg-gray-700 p-4 rounded-md flex justify-between items-center gap-4",
+                                    div { class: "flex-grow min-w-0",
+                                        h4 { class: "text-md font-bold truncate", "{album.album_title}" }
+                                        p { class: "text-sm text-gray-400",
+                                            "{album.artist.clone().unwrap_or_default()} - {album.dominant_quality}, Score: {album.score:.2}"
+                                        }
+                                        p { class: "text-xs text-gray-500",
+                                            "{album.tracks.len()} tracks"
+                                        }
+                                    }
+                                    button {
+                                        class: "bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-md text-sm transition-colors duration-300 flex items-center gap-2 shrink-0 disabled:bg-gray-600 disabled:cursor-not-allowed",
+                                        disabled: selected_folder.read().is_empty(),
+                                        onclick: move |_| {
+                                            let tracks = album_for_download.tracks.clone();
+                                            props.on_download.call((tracks, selected_folder()));
+                                        },
+                                        svg {
+                                            class: "w-4 h-4",
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            view_box: "0 0 24 24",
+                                            path {
+                                                stroke_linecap: "round",
+                                                stroke_linejoin: "round",
+                                                stroke_width: "2",
+                                                d: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
+                                            }
+                                        }
+                                        "Download"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    // Regular view with track selection
     rsx! {
         div { class: "bg-gray-800 text-white p-6 sm:p-8 rounded-lg shadow-xl max-w-2xl mx-auto my-10 font-sans relative",
             h3 { class: "text-2xl font-bold mb-6 text-center text-teal-400", "Download Options" }
