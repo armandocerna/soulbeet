@@ -143,6 +143,22 @@ pub fn Search() -> Element {
         loading.set(false);
     };
 
+    let browse_artist = move || async move {
+        loading.set(true);
+
+        if let Some(artist_name) = artist() {
+            if let Ok(data) = auth
+                .call(api::browse_artist(api::BrowseArtistQuery {
+                    artist: artist_name,
+                }))
+                .await
+            {
+                response.set(Some(data));
+            }
+        }
+        loading.set(false);
+    };
+
     let view_full_album = move |album_id: String| async move {
         loading.set(true);
 
@@ -210,7 +226,7 @@ pub fn Search() -> Element {
             },
           }
         }
-        div { class: "flex justify-center gap-4 mb-8",
+        div { class: "flex justify-center gap-4 mb-8 flex-wrap",
 
           Button {
             disabled: loading() || search.read().is_empty(),
@@ -223,6 +239,12 @@ pub fn Search() -> Element {
             onclick: move |_| search_album(),
 
             {"Search an Album"}
+          }
+          Button {
+            disabled: loading() || artist.read().is_none(),
+            onclick: move |_| browse_artist(),
+
+            {"Browse Artist"}
           }
         }
 

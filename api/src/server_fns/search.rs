@@ -55,6 +55,18 @@ pub async fn find_album(id: String) -> Result<AlbumWithTracks, ServerFnError> {
     musicbrainz::find_album(&id).await.map_err(server_error)
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BrowseArtistQuery {
+    pub artist: String,
+}
+
+#[post("/api/musicbrainz/browse/artist", _: AuthSession)]
+pub async fn browse_artist(input: BrowseArtistQuery) -> Result<Vec<SearchResult>, ServerFnError> {
+    musicbrainz::browse_artist_albums(&input.artist, 100)
+        .await
+        .map_err(server_error)
+}
+
 #[post("/api/slskd/search/start", _: AuthSession)]
 pub async fn start_download_search(data: DownloadQuery) -> Result<String, ServerFnError> {
     let artist = data.album.artist;
