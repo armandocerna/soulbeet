@@ -1,12 +1,11 @@
 use musicbrainz_rs::{
     entity::{
-        artist::{Artist, ArtistSearchQuery},
         artist_credit::ArtistCredit,
         recording::{Recording, RecordingSearchQuery},
         release::{Release, ReleaseStatus},
         release_group::{ReleaseGroup, ReleaseGroupPrimaryType, ReleaseGroupSearchQuery},
     },
-    Browse, Fetch, MusicBrainzClient, Search,
+    Fetch, MusicBrainzClient, Search,
 };
 use shared::musicbrainz::{Album, AlbumWithTracks, SearchResult, Track};
 use std::{collections::HashSet, sync::OnceLock};
@@ -208,50 +207,30 @@ pub async fn find_album(release_id: &str) -> Result<AlbumWithTracks, musicbrainz
     Ok(album_with_tracks)
 }
 
-/// Searches for an artist by name and returns their albums.
-/// First finds the artist, then browses all their release groups.
+/// Searches for all albums by an artist name.
+/// Uses the search API with artist filter to find all release groups.
 pub async fn browse_artist_albums(
     artist_name: &str,
     limit: u8,
 ) -> Result<Vec<SearchResult>, musicbrainz_rs::Error> {
     let client = musicbrainz_client();
 
-    info!("Searching for artist: '{}'", artist_name);
+    info!("Browsing albums for artist: '{}'", artist_name);
 
-    // First, search for the artist to get their ID
-    let artist_query = ArtistSearchQuery::query_builder()
+    // Use the search API with artist filter - search for release groups by this artist
+    let album_query = ReleaseGroupSearchQuery::query_builder()
         .artist(artist_name)
         .build();
 
-    let artist_results = Artist::search(artist_query)
-        .limit(1)
-        .execute_with_client(client)
-        .await?;
-
-    let artist = match artist_results.entities.into_iter().next() {
-        Some(a) => a,
-        None => {
-            info!("No artist found for: '{}'", artist_name);
-            return Ok(Vec::new());
-        }
-    };
-
-    info!(
-        "Found artist: '{}' (ID: {})",
-        artist.name, artist.id
-    );
-
-    // Now browse all release groups by this artist
-    let release_groups = ReleaseGroup::browse()
-        .by_artist(&artist.id)
-        .with_releases()
+    let search_results = ReleaseGroup::search(album_query)
         .limit(limit)
+        .with_releases()
         .execute_with_client(client)
         .await?;
 
     let mut results = Vec::new();
 
-    for release_group in release_groups.entities {
+    for release_group in search_results.entities {
         // Only include albums (not singles, EPs, etc.)
         if release_group.primary_type != Some(ReleaseGroupPrimaryType::Album) {
             continue;
@@ -267,7 +246,7 @@ pub async fn browse_artist_albums(
             results.push(SearchResult::Album(Album {
                 id: best_release.id.clone(),
                 title: release_group.title.clone(),
-                artist: artist.name.clone(),
+                artist: format_artist_credit(&release_group.artist_credit),
                 release_date: best_release.date.as_ref().map(|d| d.0.clone()),
             }));
         }
