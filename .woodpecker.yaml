@@ -1,3 +1,11 @@
+when:
+  event:
+    - push
+  branch:
+    - master
+    - main
+    - fix/slskd-download-response-parsing
+
 steps:
   - name: build
     image: rust:1.91-bookworm
@@ -9,13 +17,11 @@ steps:
       - dx bundle --package web --release
 
   - name: docker
-    image: plugins/docker
+    image: woodpeckerci/plugin-kaniko
     settings:
-      repo: registry.i.cerna.ca/soulbeet
-      registry: registry.i.cerna.ca
-      tags:
-        - latest
-        - ${CI_COMMIT_SHA:0:8}
+      registry: localhost:30500
+      repo: soulbeet
+      tags: ${CI_COMMIT_SHA:0:8}
       dockerfile: Dockerfile
-    when:
-      branch: master
+      insecure: true
+      skip_tls_verify: true
