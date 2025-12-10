@@ -498,7 +498,9 @@ impl SoulseekClient {
     }
 
     pub async fn download(&self, req: Vec<TrackResult>) -> Result<Vec<DownloadResponse>> {
-        let mut requests_by_username: HashMap<String, Vec<DownloadRequestFile>> = HashMap::new();
+        // Use HashMap with filename as key to deduplicate
+        let mut requests_by_username: HashMap<String, HashMap<String, DownloadRequestFile>> =
+            HashMap::new();
 
         #[derive(Deserialize, Debug)]
         #[serde(rename_all = "camelCase")]
@@ -518,8 +520,9 @@ impl SoulseekClient {
 
         info!("Attempting to download: {} files...", req.len());
         for req in req {
-            let list = requests_by_username.entry(req.base.username).or_default();
-            list.push(DownloadRequestFile {
+            let files = requests_by_username.entry(req.base.username).or_default();
+            // Deduplicate by filename - if same file appears twice, keep first occurrence
+            files.entry(req.base.filename.clone()).or_insert(DownloadRequestFile {
                 filename: req.base.filename,
                 size: req.base.size,
             });
@@ -527,12 +530,16 @@ impl SoulseekClient {
 
         let mut res = vec![];
 
-        for (username, file_requests) in requests_by_username.into_iter() {
+        for (username, file_requests_map) in requests_by_username.into_iter() {
+            // Convert HashMap to Vec for the API request
+            let file_requests: Vec<DownloadRequestFile> =
+                file_requests_map.into_values().collect();
+
             let endpoint = format!("transfers/downloads/{username}");
             let url = self.base_url.join(&format!("api/v0/{endpoint}"))?;
 
             info!(
-                "Sending download request to {} with {} files",
+                "Sending download request to {} with {} files (after dedup)",
                 url,
                 file_requests.len()
             );
