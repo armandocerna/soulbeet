@@ -10,7 +10,7 @@ steps:
   - name: build
     image: woodpeckerci/plugin-kaniko
     settings:
-      registry: localhost:30500
+      registry: registry.registry.svc.cluster.local:5000
       repo: soulbeet
       tags: ${CI_COMMIT_SHA:0:8}
       dockerfile: Dockerfile
