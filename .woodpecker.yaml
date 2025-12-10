@@ -1,0 +1,21 @@
+steps:
+  - name: build
+    image: rust:1.91-bookworm
+    commands:
+      - apt-get update && apt-get install -y pkg-config libssl-dev nodejs npm
+      - cargo install dioxus-cli
+      - npm install
+      - npx @tailwindcss/cli -i ./web/assets/input.css -o ./web/assets/tailwind.css
+      - dx bundle --package web --release
+
+  - name: docker
+    image: plugins/docker
+    settings:
+      repo: registry.i.cerna.ca/soulbeet
+      registry: registry.i.cerna.ca
+      tags:
+        - latest
+        - ${CI_COMMIT_SHA:0:8}
+      dockerfile: Dockerfile
+    when:
+      branch: master
