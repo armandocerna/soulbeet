@@ -51,8 +51,8 @@ RUN apt-get update && apt-get install -y \
 
 ENV PIPX_BIN_DIR=/usr/local/bin
 
-# Install beets
-RUN pipx install beets
+# Install beets with plugin dependencies
+RUN pipx install 'beets[chroma,fetchart,embedart]'
 
 # Working directory
 WORKDIR /app
