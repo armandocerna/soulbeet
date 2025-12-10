@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use shared::slskd::{AlbumResult, TrackResult};
 use std::collections::HashSet;
 
-use crate::{use_auth, Checkbox};
+use crate::{use_auth, use_download_full_albums, Checkbox};
 
 #[derive(Props, PartialEq, Clone)]
 pub struct Props {
@@ -65,6 +65,25 @@ pub fn DownloadResults(props: Props) -> Element {
     let mut folders = use_signal(std::vec::Vec::new);
     let mut selected_folder = use_signal(|| "".to_string());
     let auth = use_auth();
+    let download_full_albums = use_download_full_albums();
+
+    // Auto-select all tracks from the best album when preference is enabled
+    {
+        let results_for_effect = results.clone();
+        use_effect(move || {
+            if download_full_albums.get() && !results_for_effect.is_empty() {
+                let mut selected = selected_tracks.write();
+                if selected.is_empty() {
+                    // Select all tracks from the first (best) album
+                    if let Some(best_album) = results_for_effect.first() {
+                        for track in &best_album.tracks {
+                            selected.insert(track.base.filename.clone());
+                        }
+                    }
+                }
+            }
+        });
+    }
 
     use_future(move || async move {
         if let Ok(user_folders) = auth.call(api::get_user_folders()).await {

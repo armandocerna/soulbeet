@@ -15,7 +15,7 @@ use shared::slskd::{
 use track::TrackResult;
 
 use crate::search::album::AlbumResult;
-use crate::{use_auth, Album, AlbumHeader, Button, Modal};
+use crate::{use_auth, use_download_full_albums, Album, AlbumHeader, Button, Modal};
 
 mod download_results;
 use download_results::DownloadResults;
@@ -30,6 +30,7 @@ pub fn Search() -> Element {
     let mut viewing_album = use_signal::<Option<AlbumWithTracks>>(|| None);
     let mut download_options = use_signal::<Option<Vec<SlskdAlbumResult>>>(|| None);
     let search_reset = try_use_context::<SearchReset>();
+    let mut download_full_albums = use_download_full_albums();
 
     use_effect(move || {
         if let Some(reset) = search_reset {
@@ -163,11 +164,23 @@ pub fn Search() -> Element {
         loading.set(true);
 
         if let Ok(album_data) = auth.call(api::find_album(album_id.clone())).await {
-            viewing_album.set(Some(album_data));
+            if download_full_albums.get() {
+                // Skip the track selection modal and immediately start download with all tracks
+                let query = DownloadQuery {
+                    album: album_data.album,
+                    tracks: album_data.tracks,
+                };
+                // Reset loading since download() will set it again
+                loading.set(false);
+                spawn(download(query));
+            } else {
+                viewing_album.set(Some(album_data));
+                loading.set(false);
+            }
         } else {
             info!("Failed to fetch album details for {}", album_id);
+            loading.set(false);
         }
-        loading.set(false);
     };
 
     if let Some(results) = download_options.read().clone() {
@@ -226,7 +239,7 @@ pub fn Search() -> Element {
             },
           }
         }
-        div { class: "flex justify-center gap-4 mb-8 flex-wrap",
+        div { class: "flex justify-center gap-4 mb-4 flex-wrap",
 
           Button {
             disabled: loading() || search.read().is_empty(),
@@ -245,6 +258,18 @@ pub fn Search() -> Element {
             onclick: move |_| browse_artist(),
 
             {"Browse Artist"}
+          }
+        }
+
+        div { class: "flex justify-center items-center gap-2 mb-8",
+          label { class: "flex items-center gap-2 cursor-pointer text-sm text-gray-300 hover:text-white transition-colors",
+            input {
+              r#type: "checkbox",
+              checked: download_full_albums.get(),
+              onchange: move |_| download_full_albums.toggle(),
+              class: "w-4 h-4 rounded bg-gray-700 border-gray-600 text-teal-500 focus:ring-teal-500 focus:ring-offset-gray-800 cursor-pointer",
+            }
+            "Download full albums (skip track selection)"
           }
         }
 
